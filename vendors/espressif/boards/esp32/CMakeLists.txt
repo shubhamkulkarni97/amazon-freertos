@@ -11,9 +11,38 @@ endif()
 # -------------------------------------------------------------------------------------------------
 # Compiler settings
 # -------------------------------------------------------------------------------------------------
+
+set(esp_idf_dir "${AFR_VENDORS_DIR}/espressif/esp-idf")
+# Provides idf_import_components and idf_link_components
+include(${esp_idf_dir}/tools/cmake/idf_functions.cmake)
+
+idf_set_global_compile_options()
+
+if(AFR_IS_TESTING)
+    set(exe_target aws_tests)
+else()
+    set(exe_target aws_demos)
+endif()
+
 afr_mcu_port(compiler)
 
-set(linker_flags "-Wl,--gc-sections" "-Wl,--cref" "-Wl,--Map=output.map" "-Wl,--undefined=uxTopUsedPriority")
+set(linker_flags "-Wl,--gc-sections" "-Wl,--cref" "-Wl,--Map=${exe_target}.map" "-Wl,--undefined=uxTopUsedPriority")
+
+# Compiler flags
+target_compile_options(
+    AFR::compiler::mcu_port
+    INTERFACE
+    ${IDF_COMPILE_OPTIONS}
+    $<$<COMPILE_LANGUAGE:C>:${IDF_C_COMPILE_OPTIONS}>
+    $<$<COMPILE_LANGUAGE:CXX>:${IDF_CXX_COMPILE_OPTIONS}>
+)
+
+# Compiler definitions/macros
+target_compile_definitions(
+    AFR::compiler::mcu_port
+    INTERFACE
+    ${IDF_COMPILE_DEFINITIONS}
+)
 
 # Linker flags
 target_link_options(
@@ -24,7 +53,8 @@ target_link_options(
 # -------------------------------------------------------------------------------------------------
 # Amazon FreeRTOS portable layers
 # -------------------------------------------------------------------------------------------------
-set(esp_idf_dir "${AFR_VENDORS_DIR}/espressif/esp-idf")
+set(afr_ports_dir "${CMAKE_CURRENT_LIST_DIR}/ports")
+set(extra_components_dir "${CMAKE_CURRENT_LIST_DIR}/components")
 set(afr_ports_dir "${CMAKE_CURRENT_LIST_DIR}/ports")
 set(board_demos_dir "${CMAKE_CURRENT_LIST_DIR}/aws_demos")
 set(board_tests_dir "${CMAKE_CURRENT_LIST_DIR}/aws_tests")

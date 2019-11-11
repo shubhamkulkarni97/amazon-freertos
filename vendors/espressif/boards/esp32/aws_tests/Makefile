@@ -16,7 +16,7 @@ export AMAZON_FREERTOS_ENABLE_UNIT_TEST := 1
 
 EXTRA_COMPONENT_DIRS := $(AMAZON_FREERTOS_PATH)/vendors/espressif/boards/esp32/aws_tests/application_code/espressif_code
 
-CFLAGS += -DAMAZON_FREERTOS_ENABLE_UNIT_TESTS -DUNITY_INCLUDE_CONFIG_H
+CFLAGS += -DAMAZON_FREERTOS_ENABLE_UNIT_TESTS -DUNITY_INCLUDE_CONFIG_H -Wno-clobbered -Wno-unused-but-set-variable -Wno-unused-variable -Wno-unused-function
 
 include $(IDF_PATH)/make/project.mk
 

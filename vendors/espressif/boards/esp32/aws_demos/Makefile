@@ -13,6 +13,7 @@ ifndef IDF_PATH
 export IDF_PATH := $(AMAZON_FREERTOS_PATH)/vendors/espressif/esp-idf
 EXTRA_COMPONENT_DIRS := $(AMAZON_FREERTOS_PATH)/vendors/espressif/boards/esp32/aws_demos/application_code/espressif_code
 
+CFLAGS+=-Wno-unused-function -Wno-unused-variable
 include $(IDF_PATH)/make/project.mk
 
 else
