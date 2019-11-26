@@ -1,0 +1,36 @@
+stages:
+  - build
+
+variables:
+  BATCH_BUILD: "1"
+  V: "0"
+  IDF_PATH: "$CI_PROJECT_DIR/vendors/espressif/esp-idf"
+
+build_example:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+  script:
+    # add gitlab ssh key
+    - cmake --version
+    - export PATH="$IDF_PATH/tools:$PATH"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64
+    - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+    - git --version
+    - git submodule update --init --recursive
+    - pushd $IDF_PATH
+    - source tools/ci/configure_ci_environment.sh
+    - popd
+    - unset IDF_PATH
+    - cd vendors/espressif/boards/esp32/aws_demos/
+    - make -j8
+    - make AFR_ESP_LWIP=1 defconfig; make AFR_ESP_LWIP=1 -j4
+    - cd ..
+    - cd aws_tests/
+    - make -j8
+    - make AFR_ESP_LWIP=1 defconfig; make AFR_ESP_LWIP=1 -j4
