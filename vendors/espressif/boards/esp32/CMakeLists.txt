@@ -304,6 +304,9 @@ if(AFR_ENABLE_DEMOS OR AFR_ENABLE_TESTS)
     add_executable(
         ${exe_target}
         "${board_dir}/application_code/main.c"
+        "${board_dir}/application_code/esp_prov_example.c"
+        "${board_dir}/application_code/app_prov_handlers.c"
+        "${board_dir}/application_code/app_prov.c"
         ${extra_exe_sources}
     )
     target_include_directories(

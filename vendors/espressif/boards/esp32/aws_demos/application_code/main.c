@@ -103,7 +103,7 @@ static void prvMiscInitialization( void );
 /**
  * @brief Application runtime entry point.
  */
-int app_main( void )
+int demos_main( void )
 {
     /* Perform any hardware initialization that does not require the RTOS to be
      * running.  */
