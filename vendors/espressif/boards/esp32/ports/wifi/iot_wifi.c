@@ -1218,7 +1218,11 @@ static esp_err_t WIFI_SetSecurity( WIFISecurity_t securityMode, wifi_auth_mode_t
 
 WIFIReturnCode_t WIFI_ConfigureAP( const WIFINetworkParams_t * const pxNetworkParams )
 {
-    wifi_config_t wifi_config = { 0 };
+    wifi_config_t wifi_config = {
+        .ap = {
+            .max_connection = 4,
+        },
+    };
     esp_err_t ret;
     WIFIReturnCode_t wifi_ret = eWiFiFailure;
 
