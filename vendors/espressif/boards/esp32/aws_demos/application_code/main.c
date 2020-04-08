@@ -29,6 +29,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "iot_i2c.h"
 
 /* Demo includes */
 #include "aws_demo.h"
@@ -100,48 +101,164 @@ static void prvMiscInitialization( void );
 
 /*-----------------------------------------------------------*/
 
+int8_t i2c_read()
+{
+    IotI2CHandle_t xI2CHandle;
+    int32_t lRetVal;
+    uint8_t singleByte;
+
+    uint16_t readBytes;
+    uint16_t writeBytes;
+
+    uint8_t testIotI2C_INSTANCE = 0;
+    uint8_t uctestIotI2CSlaveAddr = 0x68;   // Set I2C slave address
+    uint8_t uctestIotI2CDeviceRegister = 0x2;
+
+    IotI2CConfig_t xI2CConfig =
+    {
+        .ulBusFreq       = 400000,
+        .ulMasterTimeout = 400,
+    };
+
+    /* Open i2c to initialize hardware */
+    xI2CHandle = iot_i2c_open( testIotI2C_INSTANCE );
+
+    /* Set i2c configuration */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSetMasterConfig, &xI2CConfig );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to set master config\n");
+        return -1;
+    }
+
+    /* Set i2c slave address */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSetSlaveAddr, &uctestIotI2CSlaveAddr );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to set slave address\n");
+        return -1;
+    }
+
+    /* Set i2c configuration */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSendNoStopFlag, NULL );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to ser no stop flag\n");
+        return -1;
+    }
+
+    /* write the device register address. */
+    lRetVal = iot_i2c_write_sync( xI2CHandle, &uctestIotI2CDeviceRegister, sizeof( uctestIotI2CDeviceRegister ) );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to write\n");
+        return -1;
+    }
+
+    /* repeated start to read */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSetSlaveAddr, &uctestIotI2CSlaveAddr );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to set slave address\n");
+        return -1;
+    }
+
+    /* read from i2c device for single byte */
+    lRetVal = iot_i2c_read_sync( xI2CHandle, &singleByte, sizeof( singleByte ) );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to read\n");
+        return -1;
+    }
+
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CGetTxNoOfbytes, &writeBytes );
+    /* Assert the number of bytes being written is 1. */
+    if (lRetVal != IOT_I2C_SUCCESS || writeBytes != sizeof( singleByte )) {
+        printf("Failed to get number of TxBytes\n");
+        return -1;
+    }
+
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CGetRxNoOfbytes, &readBytes );
+    /* Assert the number of bytes being read is 1. */
+    if (lRetVal != IOT_I2C_SUCCESS || readBytes != sizeof( singleByte )) {
+        printf("Failed to get number of RxBytes\n");
+        return -1;
+    }
+
+    lRetVal = iot_i2c_close( xI2CHandle );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to close\n");
+        return -1;
+    }
+    return singleByte;
+}
+
+int8_t i2c_write(uint8_t uctestIotI2CWriteVal)
+{
+    IotI2CHandle_t xI2CHandle;
+    int32_t lRetVal;
+    uint8_t testIotI2C_INSTANCE = 0;
+    uint8_t uctestIotI2CSlaveAddr = 0x68;   // Set I2C slave address
+    uint8_t uctestIotI2CDeviceRegister = 0x2;
+    uint8_t writeVal1[] = { uctestIotI2CDeviceRegister, uctestIotI2CWriteVal };
+
+    uint16_t writeBytes;
+
+    IotI2CConfig_t xI2CConfig =
+    {
+        .ulBusFreq       = 400000,
+        .ulMasterTimeout = 400
+    };
+
+    /* Open i2c to initialize hardware */
+    xI2CHandle = iot_i2c_open( testIotI2C_INSTANCE );
+
+    /* Set i2c configuration */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSetMasterConfig, &xI2CConfig );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to set master config\n");
+        return -1;
+    }
+
+    /* Set i2c slave address */
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CSetSlaveAddr, &uctestIotI2CSlaveAddr );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to set slave address\n");
+        return -1;
+    }
+
+    /* write the value to the device */
+    lRetVal = iot_i2c_write_sync( xI2CHandle, writeVal1, sizeof( writeVal1 ) );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to write\n");
+        return -1;
+    }
+
+    lRetVal = iot_i2c_ioctl( xI2CHandle, eI2CGetTxNoOfbytes, &writeBytes );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to get number of TxBytes\n");
+        return -1;
+    }
+
+    lRetVal = iot_i2c_close( xI2CHandle );
+    if (lRetVal != IOT_I2C_SUCCESS) {
+        printf("Failed to close\n");
+        return -1;
+    }
+    return 0;
+}
+
 /**
  * @brief Application runtime entry point.
  */
 int app_main( void )
 {
+    int8_t data = 7;
+    if (i2c_write(data) < 0) {
+        printf("Failed to write\n");
+    }
+    int8_t data_read = i2c_read();
+    if (data_read < 0) {
+        printf("Failed to read\n");
+    }
+    printf("%d is data read\n", data_read);
     /* Perform any hardware initialization that does not require the RTOS to be
      * running.  */
 
-    prvMiscInitialization();
-
-    if( SYSTEM_Init() == pdPASS )
-    {
-        /* A simple example to demonstrate key and certificate provisioning in
-         * microcontroller flash using PKCS#11 interface. This should be replaced
-         * by production ready key provisioning mechanism. */
-        vDevModeKeyProvisioning();
-
-        #if BLE_ENABLED
-            /* Initialize BLE. */
-            ESP_ERROR_CHECK( esp_bt_controller_mem_release( ESP_BT_MODE_CLASSIC_BT ) );
-
-            if( prvBLEStackInit() != ESP_OK )
-            {
-                configPRINTF( ( "Failed to initialize the bluetooth stack\n " ) );
-
-                while( 1 )
-                {
-                }
-            }
-        #else
-            ESP_ERROR_CHECK( esp_bt_controller_mem_release( ESP_BT_MODE_CLASSIC_BT ) );
-            ESP_ERROR_CHECK( esp_bt_controller_mem_release( ESP_BT_MODE_BLE ) );
-        #endif /* if BLE_ENABLED */
-        /* Run all demos. */
-        DEMO_RUNNER_RunDemos();
-    }
-
-    /* Start the scheduler.  Initialization that requires the OS to be running,
-     * including the WiFi initialization, is performed in the RTOS daemon task
-     * startup hook. */
-    /* Following is taken care by initialization code in ESP IDF */
-    /* vTaskStartScheduler(); */
     return 0;
 }
 
