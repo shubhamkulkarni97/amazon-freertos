@@ -74,7 +74,7 @@ ble_hs_hci_cmd_send(uint16_t opcode, uint8_t len, const void *cmddata)
     buf = ble_hci_trans_buf_alloc(BLE_HCI_TRANS_BUF_CMD);
     BLE_HS_DBG_ASSERT(buf != NULL);
 
-    /* Hack for avoiding memcpy while handling tx pkt to VHCI, 
+    /* Hack for avoiding memcpy while handling tx pkt to VHCI,
      * keep one byte for type field*/
     buf++;
     put_le16(buf, opcode);
@@ -181,6 +181,9 @@ ble_hs_hci_cmd_body_le_set_adv_params(const struct hci_adv_params *adv,
 #if MYNEWT_VAL(BLE_CONTROLLER)
     itvl = BLE_HCI_ADV_ITVL_MIN;
 #else
+#if MYNEWT_VAL(ESP_BLE_MESH)
+    itvl = BLE_HCI_ADV_ITVL_MIN;
+#else
     /* Make sure interval is valid for advertising type. */
     if (((adv->adv_type == BLE_HCI_ADV_TYPE_ADV_NONCONN_IND) ||
         (adv->adv_type == BLE_HCI_ADV_TYPE_ADV_SCAN_IND)) &&
@@ -189,6 +192,7 @@ ble_hs_hci_cmd_body_le_set_adv_params(const struct hci_adv_params *adv,
     } else {
         itvl = BLE_HCI_ADV_ITVL_MIN;
     }
+#endif
 #endif
 
     /* Do not check if high duty-cycle directed */
@@ -919,7 +923,7 @@ ble_hs_hci_cmd_body_remove_from_resolv_list(uint8_t addr_type,
                                             uint8_t *dst)
 {
     if (addr_type > BLE_ADDR_RANDOM) {
-        return BLE_ERR_INV_HCI_CMD_PARMS;
+        addr_type = addr_type % 2;
     }
 
     dst[0] = addr_type;

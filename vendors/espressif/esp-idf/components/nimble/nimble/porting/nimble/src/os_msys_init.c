@@ -20,6 +20,7 @@
 #include <assert.h>
 #include "os/os.h"
 #include "mem/mem.h"
+#include "esp_nimble_mem.h"
 
 #if MYNEWT_VAL(MSYS_1_BLOCK_COUNT) > 0
 #define SYSINIT_MSYS_1_MEMBLOCK_SIZE                \
@@ -27,7 +28,7 @@
 #define SYSINIT_MSYS_1_MEMPOOL_SIZE                 \
     OS_MEMPOOL_SIZE(MYNEWT_VAL(MSYS_1_BLOCK_COUNT),  \
                     SYSINIT_MSYS_1_MEMBLOCK_SIZE)
-static os_membuf_t os_msys_init_1_data[SYSINIT_MSYS_1_MEMPOOL_SIZE];
+static os_membuf_t *os_msys_init_1_data;
 static struct os_mbuf_pool os_msys_init_1_mbuf_pool;
 static struct os_mempool os_msys_init_1_mempool;
 #endif
@@ -38,7 +39,7 @@ static struct os_mempool os_msys_init_1_mempool;
 #define SYSINIT_MSYS_2_MEMPOOL_SIZE                 \
     OS_MEMPOOL_SIZE(MYNEWT_VAL(MSYS_2_BLOCK_COUNT),  \
                     SYSINIT_MSYS_2_MEMBLOCK_SIZE)
-static os_membuf_t os_msys_init_2_data[SYSINIT_MSYS_2_MEMPOOL_SIZE];
+static os_membuf_t *os_msys_init_2_data;
 static struct os_mbuf_pool os_msys_init_2_mbuf_pool;
 static struct os_mempool os_msys_init_2_mempool;
 #endif
@@ -56,6 +57,41 @@ os_msys_init_once(void *data, struct os_mempool *mempool,
 
     rc = os_msys_register(mbuf_pool);
     assert(rc == 0);
+}
+
+int
+os_msys_buf_alloc(void)
+{
+#if MYNEWT_VAL(MSYS_1_BLOCK_COUNT) > 0
+    os_msys_init_1_data = (os_membuf_t *)nimble_platform_mem_calloc(1, (sizeof(os_membuf_t) * SYSINIT_MSYS_1_MEMPOOL_SIZE));
+    if (!os_msys_init_1_data) {
+        return -1;
+    }
+#endif
+
+#if MYNEWT_VAL(MSYS_2_BLOCK_COUNT) > 0
+    os_msys_init_2_data = (os_membuf_t *)nimble_platform_mem_calloc(1, (sizeof(os_membuf_t) * SYSINIT_MSYS_2_MEMPOOL_SIZE));
+    if (!os_msys_init_2_data) {
+        return -1;
+    }
+#endif
+
+    return 0;
+}
+
+void
+os_msys_buf_free(void)
+{
+#if MYNEWT_VAL(MSYS_1_BLOCK_COUNT) > 0
+    nimble_platform_mem_free(os_msys_init_1_data);
+    os_msys_init_1_data = NULL;
+#endif
+
+#if MYNEWT_VAL(MSYS_2_BLOCK_COUNT) > 0
+    nimble_platform_mem_free(os_msys_init_2_data);
+    os_msys_init_2_data = NULL;
+#endif
+
 }
 
 void

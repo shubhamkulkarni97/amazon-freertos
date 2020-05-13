@@ -30,6 +30,12 @@
 
 set -e
 
+if [[ ${TRAVIS_OS_NAME} = osx ]]; then
+    export PATH="/usr/local/opt/coreutils/libexec/gnubin${PATH:+:}${PATH}"
+elif [[ ${TRAVIS_OS_NAME} = linux ]]; then
+    export PATH="/usr/lib/llvm-9/bin:${PATH}"
+fi
+
 PS4='# '
 set -x
 
@@ -37,12 +43,24 @@ cd expat
 ./buildconf.sh
 
 if [[ ${MODE} = distcheck ]]; then
-    ./configure
+    ./configure ${CONFIGURE_ARGS}
     make distcheck
 
     mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
     ln -v -s "$PWD"/expat-*.tar.bz2 ~/rpmbuild/SOURCES/
     rpmbuild -ba expat.spec
+elif [[ ${MODE} = cmake-oos ]]; then
+    mkdir build
+    cd build
+    cmake ${CMAKE_ARGS} ..
+    make VERBOSE=1 all test
+    make DESTDIR="${PWD}"/ROOT install
+    find ROOT -printf "%P\n" | sort
+elif [[ ${MODE} = cppcheck ]]; then
+    cppcheck --quiet --error-exitcode=1 .
+elif [[ ${MODE} = clang-format ]]; then
+    ./apply-clang-format.sh
+    git diff --exit-code
 else
-    ./qa.sh "${MODE}"
+    ./qa.sh ${CMAKE_ARGS}
 fi

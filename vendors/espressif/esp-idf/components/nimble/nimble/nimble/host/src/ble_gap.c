@@ -24,6 +24,7 @@
 #include "host/ble_hs_adv.h"
 #include "host/ble_hs_hci.h"
 #include "ble_hs_priv.h"
+#include "ble_hs_resolv_priv.h"
 
 #if MYNEWT
 #include "bsp/bsp.h"
@@ -360,6 +361,23 @@ ble_gap_fill_conn_desc(struct ble_hs_conn *conn,
     ble_hs_conn_addrs(conn, &addrs);
 
     desc->our_id_addr = addrs.our_id_addr;
+#if MYNEWT_VAL(BLE_HOST_BASED_PRIVACY)
+    /* Check if the privacy is enabled, change the address type accordingly
+     * */
+    if (ble_host_rpa_enabled())
+    {
+        uint8_t *local_id = NULL;
+        struct ble_hs_resolv_entry *rl = NULL;
+        rl = ble_hs_resolv_list_find(conn->bhc_peer_addr.val);
+
+        if (rl != NULL) {
+            /* Get public ID address here */
+            ble_hs_id_addr(BLE_ADDR_PUBLIC, (const uint8_t **) &local_id, NULL);
+            memcpy(desc->our_id_addr.val, local_id, BLE_DEV_ADDR_LEN);
+            desc->our_id_addr.type = BLE_ADDR_PUBLIC;
+        }
+    }
+#endif
     desc->peer_id_addr = addrs.peer_id_addr;
     desc->our_ota_addr = addrs.our_ota_addr;
     desc->peer_ota_addr = addrs.peer_ota_addr;
@@ -948,6 +966,14 @@ ble_gap_master_failed(int status)
         ble_gap_master_connect_failure(status);
         break;
 
+#if NIMBLE_BLE_SCAN
+    case BLE_GAP_OP_M_DISC:
+        STATS_INC(ble_gap_stats, initiate_fail);
+        ble_gap_disc_complete();
+        ble_gap_master_reset_state();
+        break;
+#endif
+
     default:
         BLE_HS_DBG_ASSERT(0);
         break;
@@ -1176,6 +1202,46 @@ ble_gap_adv_active_instance(uint8_t instance)
 {
     /* Assume read is atomic; mutex not necessary. */
     return ble_gap_slave[instance].op == BLE_GAP_OP_S_ADV;
+}
+
+/**
+ * Clears advertisement and discovery state.  This function is necessary
+ * when the controller loses its active state (e.g. on host stack reset).
+ */
+void
+ble_gap_reset_state(int reason)
+{
+    uint16_t conn_handle;
+
+    while (1) {
+        conn_handle = ble_hs_atomic_first_conn_handle();
+        if (conn_handle == BLE_HS_CONN_HANDLE_NONE) {
+            break;
+        }
+
+        ble_gap_conn_broken(conn_handle, reason);
+    }
+
+#if NIMBLE_BLE_ADVERTISE
+#if MYNEWT_VAL(BLE_EXT_ADV)
+    uint8_t i;
+    for (i = 0; i < BLE_ADV_INSTANCES; i++) {
+        if (ble_gap_adv_active_instance(i)) {
+            /* Indicate to application that advertising has stopped. */
+            ble_gap_adv_finished(i, reason, 0, 0);
+        }
+    }
+#else
+    if (ble_gap_adv_active_instance(0)) {
+        /* Indicate to application that advertising has stopped. */
+        ble_gap_adv_finished(0, reason, 0, 0);
+    }
+#endif
+#endif
+
+#if (NIMBLE_BLE_SCAN || NIMBLE_BLE_CONNECT)
+    ble_gap_master_failed(reason);
+#endif
 }
 
 static int
@@ -1674,6 +1740,11 @@ ble_gap_wl_busy(void)
     return BLE_HS_ENOTSUP;
 #endif
 
+#if MYNEWT_VAL(BLE_HOST_BASED_PRIVACY)
+    if (ble_host_rpa_enabled()) {
+        return BLE_HS_ENOTSUP;
+    }
+#endif
     /* Check if an auto or selective connection establishment procedure is in
      * progress.
      */
@@ -1725,6 +1796,11 @@ ble_gap_wl_set(const ble_addr_t *addrs, uint8_t white_list_count)
     return BLE_HS_ENOTSUP;
 #endif
 
+#if MYNEWT_VAL(BLE_HOST_BASED_PRIVACY)
+    if (ble_host_rpa_enabled()) {
+        return BLE_HS_ENOTSUP;
+    }
+#endif
     int rc;
     int i;
 
@@ -4375,25 +4451,22 @@ int
 ble_gap_unpair(const ble_addr_t *peer_addr)
 {
     struct ble_hs_conn *conn;
-    int rc;
 
     if (ble_addr_cmp(peer_addr, BLE_ADDR_ANY) == 0) {
         return BLE_HS_EINVAL;
     }
 
+    ble_hs_lock();
+
     conn = ble_hs_conn_find_by_addr(peer_addr);
     if (conn != NULL) {
-        rc = ble_gap_terminate(conn->bhc_handle, BLE_ERR_REM_USER_CONN_TERM);
-        if ((rc != BLE_HS_EALREADY) && (rc != BLE_HS_ENOTCONN)) {
-            return rc;
-        }
+        ble_gap_terminate(conn->bhc_handle, BLE_ERR_REM_USER_CONN_TERM);
     }
 
-    rc = ble_hs_pvcy_remove_entry(peer_addr->type,
-                                  peer_addr->val);
-    if (rc != 0) {
-        return rc;
-    }
+    ble_hs_unlock();
+
+    ble_hs_pvcy_remove_entry(peer_addr->type,
+                             peer_addr->val);
 
     return ble_store_util_delete_peer(peer_addr);
 }
