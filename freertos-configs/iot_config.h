@@ -64,8 +64,10 @@
 /* Provide additional serializer initialization functions. */
 extern bool IotBleMqtt_InitSerialize( void );
 extern void IotBleMqtt_CleanupSerialize( void );
+#ifdef CONFIG_IDF_TARGET_ESP32
 #define _IotMqtt_InitSerializeAdditional       IotBleMqtt_InitSerialize
 #define _IotMqtt_CleanupSerializeAdditional    IotBleMqtt_CleanupSerialize
+#endif
 
 /* Provide a function to retrieve the serializer function pointers in the MQTT demo. */
 typedef struct IotMqttSerializer IotMqttSerializer_t;
