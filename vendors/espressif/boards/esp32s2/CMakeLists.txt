@@ -194,7 +194,7 @@ else()
     target_sources(
         AFR::pkcs11_implementation::mcu_port
         INTERFACE
-            "${afr_ports_dir}/pkcs11/iot_pkcs11_pal.c"
+            "${afr_ports_dir}/pkcs11/core_pkcs11_pal.c"
     )
 endif()
 
@@ -251,6 +251,39 @@ target_link_libraries(
 )
 
 endif()
+
+# Common I/O
+afr_mcu_port(common_io)
+target_sources(
+    AFR::common_io::mcu_port
+    INTERFACE
+        "${afr_ports_dir}/common_io/iot_i2c.c"
+        "${afr_ports_dir}/common_io/iot_spi.c"
+        "${afr_ports_dir}/common_io/iot_uart.c"
+        $<${AFR_IS_TESTING}:${afr_ports_dir}/common_io/iot_test_common_io_internal.c>
+        # Add the header file to generate metadata for it so that
+        # it is present in the code downloaded from FreeRTOS console.
+        "${afr_ports_dir}/common_io/include/iot_board_gpio.h"
+)
+target_include_directories(
+    AFR::common_io::mcu_port
+    INTERFACE
+        "${afr_ports_dir}/common_io/include"
+        "${AFR_ROOT_DIR}/libraries/abstractions/common_io/test"
+        "${esp_idf_dir}/components/soc/soc/include"
+        "${esp_idf_dir}/components/esp_ringbuf/include"
+)
+
+
+target_compile_options(
+    AFR::common_io::mcu_port
+    INTERFACE
+    -Wno-implicit-function-declaration
+    -Wno-format -Wno-maybe-uninitialized
+    -Wno-pointer-sign
+    -Wno-unused-but-set-variable
+    -Wno-incompatible-pointer-types
+)
 
 if(AFR_IS_TESTING)
 target_compile_definitions(
@@ -364,6 +397,10 @@ set_source_files_properties(${AFR_DEMOS_DIR}/posix/iot_test_posix_pthread.c
     PROPERTIES COMPILE_FLAGS
     "-Wno-int-conversion"
 )
+
+set_source_files_properties(${AFR_ROOT_DIR}/libraries/c_sdk/standard/mqtt/test/unit/iot_tests_mqtt_subscription.c
+    PROPERTIES COMPILE_FLAGS
+    "-Wno-restrict")
 
 set(IDF_TARGET esp32)
 set(ENV{IDF_PATH} ${esp_idf_dir})
