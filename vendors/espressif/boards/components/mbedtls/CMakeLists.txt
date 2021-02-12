@@ -2,6 +2,7 @@ idf_component_register()
 
 set(FREERTOS_COMPONENT_DIR "${CMAKE_CURRENT_LIST_DIR}/../freertos")
 set(MBEDTLS_DIR "${AFR_VENDORS_DIR}/espressif/esp-idf/components/mbedtls")
+set(esp_idf_dir "${AFR_VENDORS_DIR}/espressif/esp-idf")
 
 string(FIND "${AFR_BOARD_NAME}" "esp32s2" SOC_NAME_ESP32S2)
 string(FIND "${AFR_BOARD_NAME}" "esp32" SOC_NAME_ESP32)
@@ -40,17 +41,6 @@ else()
     )
 endif()
 
-target_include_directories(
-    afr_3rdparty_mbedtls
-    BEFORE
-    PRIVATE
-    "${AFR_VENDORS_DIR}/espressif/esp-idf/components/vfs/include"
-    "${AFR_VENDORS_DIR}/espressif/esp-idf/components/soc/soc/include/soc"
-    ${FREERTOS_COMPONENT_DIR}/include
-    PUBLIC
-    ${include_dirs}
-)
-
 set(
     mbedtls_srcs
     "${MBEDTLS_DIR}/port/esp_bignum.c"
@@ -61,6 +51,25 @@ set(
     "${MBEDTLS_DIR}/port/esp_sha.c"
     "${MBEDTLS_DIR}/port/esp_timing.c"
 )
+
+if(NOT AFR_FREERTOS_TCP)
+    list(
+        APPEND
+        include_dirs
+        "${esp_idf_dir}/components/lwip/include/apps"
+        "${esp_idf_dir}/components/lwip/include/apps/sntp"
+        "${esp_idf_dir}/components/lwip/lwip/src/include"
+        "${esp_idf_dir}/components/lwip/port/esp32/include"
+        "${esp_idf_dir}/components/lwip/port/esp32/include/arch"
+        "${esp_idf_dir}/components/lwip/lwip/src/include/compat"
+        )
+
+    list(
+        APPEND
+        mbedtls_srcs
+        "${esp_idf_dir}/components/mbedtls/port/net_sockets.c"
+        )
+endif()
 
 if(CONFIG_MBEDTLS_DYNAMIC_BUFFER)
     list(APPEND mbedtls_srcs
@@ -91,6 +100,17 @@ else()
     "${MBEDTLS_DIR}/port/esp32/esp_sha256.c"
     )
 endif()
+
+target_include_directories(
+    afr_3rdparty_mbedtls
+    BEFORE
+    PRIVATE
+    "${AFR_VENDORS_DIR}/espressif/esp-idf/components/vfs/include"
+    "${AFR_VENDORS_DIR}/espressif/esp-idf/components/soc/soc/include/soc"
+    ${FREERTOS_COMPONENT_DIR}/include
+    PUBLIC
+    ${include_dirs}
+)
 
 target_sources(
     afr_3rdparty_mbedtls
